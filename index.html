@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Учёт олимпиад</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a2028;
+    --panel-2: #232b36;
+    --accent: #4f9dff;
+    --accent-hover: #3d87e8;
+    --text: #e8ecf1;
+    --text-dim: #9aa5b1;
+    --border: #2d3642;
+    --success: #3ecf8e;
+    --warning: #f5a623;
+    --danger: #ef4444;
+    --expiring: #ef4444;
+    --active: #4f9dff;
+    --gold: #fbbf24;
+    --silver: #94a3b8;
+    --bronze: #d97706;
+    --online: #3ecf8e;
+    --offline: #f5a623;
+    --hybrid: #a78bfa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 28px; margin-bottom: 24px; display:flex; align-items:center; gap:12px; flex-wrap: wrap; }
+  .sync-status {
+    font-size: 13px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: var(--panel-2);
+    color: var(--text-dim);
+  }
+  .sync-status.ok { color: var(--success); }
+  .sync-status.err { color: var(--danger); }
+  .sync-status.loading { color: var(--warning); }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  input, select, textarea {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .btn {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-family: inherit;
+  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn-secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover:not(:disabled) { background: var(--border); }
+  .btn-danger { background: var(--danger); color: white; }
+  .btn-danger:hover:not(:disabled) { background: #d63636; }
+  .btn-sm { padding: 6px 12px; font-size: 13px; }
+  .actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+  .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+  .filters > div { flex: 1; min-width: 150px; }
+
+  .olymp-list { display: grid; gap: 12px; }
+  .olymp-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    transition: transform 0.1s;
+  }
+  .olymp-card:hover { transform: translateX(2px); }
+  .olymp-card.status-active { border-left-color: var(--active); }
+  .olymp-card.status-upcoming { border-left-color: var(--warning); }
+  .olymp-card.status-expiring { border-left-color: var(--expiring); }
+  .olymp-card.status-past { border-left-color: var(--text-dim); opacity: 0.75; }
+  .olymp-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .olymp-title { font-size: 18px; font-weight: 600; }
+  .olymp-subject {
+    display: inline-block;
+    background: var(--panel-2);
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-left: 8px;
+  }
+  .olymp-stage {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--panel-2);
+    color: var(--accent);
+    margin-left: 8px;
+  }
+  .olymp-admission {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-left: 8px;
+    letter-spacing: 0.3px;
+  }
+  .adm-1 { background: rgba(251,191,36,0.18); color: var(--gold); }
+  .adm-2 { background: rgba(148,163,184,0.2); color: var(--silver); }
+  .adm-3 { background: rgba(217,119,6,0.18); color: var(--bronze); }
+  .adm-custom { background: rgba(79,157,255,0.15); color: var(--accent); font-weight: 500; }
+
+  .olymp-format {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-left: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .fmt-online { background: rgba(62,207,142,0.15); color: var(--online); }
+  .fmt-offline { background: rgba(245,166,35,0.15); color: var(--offline); }
+  .fmt-hybrid { background: rgba(167,139,250,0.18); color: var(--hybrid); }
+  .fmt-custom { background: var(--panel-2); color: var(--text-dim); font-weight: 500; }
+
+  .olymp-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 8px 20px;
+    font-size: 14px;
+    color: var(--text-dim);
+    margin: 8px 0;
+  }
+  .olymp-meta strong { color: var(--text); font-weight: 500; }
+  .olymp-status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .status-active .olymp-status { background: rgba(79,157,255,0.15); color: var(--active); }
+  .status-upcoming .olymp-status { background: rgba(245,166,35,0.15); color: var(--warning); }
+  .status-expiring .olymp-status { background: rgba(239,68,68,0.15); color: var(--expiring); }
+  .status-past .olymp-status { background: rgba(154,165,177,0.15); color: var(--text-dim); }
+  .olymp-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+  .empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-dim);
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-size: 14px;
+    z-index: 2000;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.25s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.err { border-color: var(--danger); }
+  .toast.ok { border-color: var(--success); }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 600px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal h2 { margin-bottom: 18px; font-size: 22px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>
+    🏆 Учёт олимпиад
+    <span id="sync-status" class="sync-status loading">подключение…</span>
+  </h1>
+
+  <div class="panel">
+    <div class="form-grid">
+      <div>
+        <label>Название олимпиады</label>
+        <input type="text" id="f-name" list="names-list-main" placeholder="ВсОШ по математике" autocomplete="off">
+      </div>
+      <div>
+        <label>Предмет</label>
+        <input type="text" id="f-subject" list="subjects-list-main" placeholder="Математика" autocomplete="off">
+      </div>
+      <div>
+        <label>Этап</label>
+        <select id="f-stage">
+          <option value="Школьный">Школьный</option>
+          <option value="Муниципальный">Муниципальный</option>
+          <option value="Отборочный">Отборочный</option>
+          <option value="Региональный">Региональный</option>
+          <option value="Заключительный">Заключительный</option>
+          <option value="Международный">Международный</option>
+          <option value="custom">Свой…</option>
+        </select>
+        <input type="text" id="f-stage-custom" placeholder="Свой этап" style="display:none; margin-top:6px;">
+      </div>
+      <div>
+        <label>Формат проведения</label>
+        <input type="text" id="f-format" list="formats-list-main" placeholder="Онлайн, Офлайн, Гибрид…" autocomplete="off">
+      </div>
+      <div>
+        <label>Уровень при поступлении</label>
+        <input type="text" id="f-admission" list="admission-list-main" placeholder="1, 2, 3 или свой…" autocomplete="off">
+      </div>
+      <div>
+        <label>Доступ с (дата и время)</label>
+        <input type="datetime-local" id="f-access-start">
+      </div>
+      <div>
+        <label>Доступ по (дата и время)</label>
+        <input type="datetime-local" id="f-access-end">
+      </div>
+      <div>
+        <label>Время написания</label>
+        <input type="text" id="f-duration" placeholder="3 часа 30 минут">
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" id="add-btn" onclick="addOlymp()">Добавить</button>
+      <button class="btn btn-secondary" onclick="clearForm()">Очистить</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="filters">
+      <div>
+        <label>Поиск</label>
+        <input type="text" id="search" placeholder="Название или предмет…" oninput="render()">
+      </div>
+      <div>
+        <label>Предмет</label>
+        <select id="filter-subject" onchange="render()">
+          <option value="">Все</option>
+        </select>
+      </div>
+      <div>
+        <label>Формат</label>
+        <select id="filter-format" onchange="render()">
+          <option value="">Все</option>
+        </select>
+      </div>
+      <div>
+        <label>Уровень при поступлении</label>
+        <select id="filter-admission" onchange="render()">
+          <option value="">Все</option>
+        </select>
+      </div>
+      <div>
+        <label>Статус</label>
+        <select id="filter-status" onchange="render()">
+          <option value="">Все</option>
+          <option value="active">Активные (доступ открыт)</option>
+          <option value="expiring">🔥 Срочные (≤3 дней)</option>
+          <option value="upcoming">Будущие</option>
+          <option value="past">Прошедшие</option>
+        </select>
+      </div>
+      <div>
+        <label>Когда начинается</label>
+        <select id="filter-date" onchange="render()">
+          <option value="">Любое время</option>
+          <option value="today">Сегодня</option>
+          <option value="tomorrow">Завтра</option>
+          <option value="dayafter">Послезавтра</option>
+          <option value="week">На этой неделе</option>
+          <option value="month">В этом месяце</option>
+        </select>
+      </div>
+      <div>
+        <label>Сортировка</label>
+        <select id="sort" onchange="render()">
+          <option value="access-start-asc">Доступ с (сначала ближайшие)</option>
+          <option value="access-start-desc">Доступ с (сначала поздние)</option>
+          <option value="admission-asc">По уровню поступления (1→3)</option>
+          <option value="format-asc">По формату (онлайн→офлайн)</option>
+          <option value="name-asc">По названию А→Я</option>
+        </select>
+      </div>
+      <div style="flex:0;">
+        <label>&nbsp;</label>
+        <button class="btn btn-secondary btn-sm" onclick="exportData()">Экспорт JSON</button>
+      </div>
+      <div style="flex:0;">
+        <label>&nbsp;</label>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-file').click()">Импорт JSON</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+      </div>
+    </div>
+  </div>
+
+  <div id="olymp-list" class="olymp-list"></div>
+</div>
+
+<!-- Datalists -->
+<datalist id="names-list-main"></datalist>
+<datalist id="names-list-edit"></datalist>
+<datalist id="subjects-list-main"></datalist>
+<datalist id="subjects-list-edit"></datalist>
+<datalist id="formats-list-main"></datalist>
+<datalist id="formats-list-edit"></datalist>
+<datalist id="admission-list-main"></datalist>
+<datalist id="admission-list-edit"></datalist>
+
+<!-- Модалка редактирования -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <h2>Редактирование олимпиады</h2>
+    <div class="form-grid">
+      <div>
+        <label>Название</label>
+        <input type="text" id="e-name" list="names-list-edit" placeholder="ВсОШ по математике" autocomplete="off">
+      </div>
+      <div>
+        <label>Предмет</label>
+        <input type="text" id="e-subject" list="subjects-list-edit" placeholder="Математика" autocomplete="off">
+      </div>
+      <div>
+        <label>Этап</label>
+        <input type="text" id="e-stage">
+      </div>
+      <div>
+        <label>Формат проведения</label>
+        <input type="text" id="e-format" list="formats-list-edit" placeholder="Онлайн, Офлайн, Гибрид…" autocomplete="off">
+      </div>
+      <div>
+        <label>Уровень при поступлении</label>
+        <input type="text" id="e-admission" list="admission-list-edit" placeholder="1, 2, 3 или свой…" autocomplete="off">
+      </div>
+      <div>
+        <label>Доступ с</label>
+        <input type="datetime-local" id="e-access-start">
+      </div>
+      <div>
+        <label>Доступ по</label>
+        <input type="datetime-local" id="e-access-end">
+      </div>
+      <div>
+        <label>Время написания</label>
+        <input type="text" id="e-duration">
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" id="save-edit-btn" onclick="saveEdit()">Сохранить</button>
+      <button class="btn btn-secondary" onclick="closeEdit()">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const FB_URL = 'https://olimpiada-b3ccf-default-rtdb.europe-west1.firebasedatabase.app';
+const FB_PATH = '/olympiads.json';
+
+let data = [];
+const $ = id => document.getElementById(id);
+
+let toastTimer = null;
+function toast(msg, type = '') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = 'toast ' + type, 2500);
+}
+
+function setSyncStatus(state, text) {
+  const el = $('sync-status');
+  el.className = 'sync-status ' + state;
+  el.textContent = text;
+}
+
+async function fbGet() {
+  const res = await fetch(FB_URL + FB_PATH);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const json = await res.json();
+  if (!json) return [];
+  return Object.entries(json).map(([key, val]) => ({ ...val, fbKey: key }));
+}
+async function fbPush(item) {
+  const res = await fetch(FB_URL + FB_PATH, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(item)
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const json = await res.json();
+  return json.name;
+}
+async function fbUpdate(key, item) {
+  const res = await fetch(`${FB_URL}/olympiads/${key}.json`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(item)
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+}
+async function fbDelete(key) {
+  const res = await fetch(`${FB_URL}/olympiads/${key}.json`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+}
+async function fbReplaceAll(items) {
+  const obj = {};
+  items.forEach(it => {
+    const { fbKey, ...rest } = it;
+    obj[it.fbKey || String(Date.now())] = rest;
+  });
+  const res = await fetch(FB_URL + FB_PATH, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(obj)
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+}
+
+function migrateItem(it) {
+  if (it.level && !it.stage) {
+    it.stage = it.level;
+    delete it.level;
+  }
+  if (it.admission === 'none') it.admission = '';
+  if (!it.format) it.format = '';
+  return it;
+}
+
+function refreshDatalists() {
+  const names = [...new Set(data.map(d => d.name).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'ru'));
+  const subjects = [...new Set(data.map(d => d.subject).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'ru'));
+  const formats = [...new Set(data.map(d => d.format).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'ru'));
+  const admissions = [...new Set(data.map(d => d.admission).filter(Boolean))].sort((a,b) => {
+    const na = parseInt(a), nb = parseInt(b);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return a.localeCompare(b, 'ru');
+  });
+
+  const namesHtml = names.map(s => `<option value="${escapeHtml(s)}">`).join('');
+  const subjectsHtml = subjects.map(s => `<option value="${escapeHtml(s)}">`).join('');
+
+  const baseFormats = ['Онлайн', 'Офлайн', 'Гибрид'];
+  const allFormats = [...new Set([...baseFormats, ...formats])].sort((a,b) => {
+    const order = { 'Онлайн': 1, 'Офлайн': 2, 'Гибрид': 3 };
+    const oa = order[a] ?? 99, ob = order[b] ?? 99;
+    if (oa !== ob) return oa - ob;
+    return a.localeCompare(b, 'ru');
+  });
+  const formatsHtml = allFormats.map(s => `<option value="${escapeHtml(s)}">`).join('');
+
+  const baseAdmissions = ['1', '2', '3'];
+  const allAdmissions = [...new Set([...baseAdmissions, ...admissions])].sort((a,b) => {
+    const na = parseInt(a), nb = parseInt(b);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return a.localeCompare(b, 'ru');
+  });
+  const admissionsHtml = allAdmissions.map(s => `<option value="${escapeHtml(s)}">`).join('');
+
+  $('names-list-main').innerHTML = namesHtml;
+  $('names-list-edit').innerHTML = namesHtml;
+  $('subjects-list-main').innerHTML = subjectsHtml;
+  $('subjects-list-edit').innerHTML = subjectsHtml;
+  $('formats-list-main').innerHTML = formatsHtml;
+  $('formats-list-edit').innerHTML = formatsHtml;
+  $('admission-list-main').innerHTML = admissionsHtml;
+  $('admission-list-edit').innerHTML = admissionsHtml;
+}
+
+async function init() {
+  try {
+    setSyncStatus('loading', 'загрузка…');
+    const remote = await fbGet();
+    data = remote.map(migrateItem);
+    localStorage.setItem('olympiads_cache', JSON.stringify(data));
+    setSyncStatus('ok', '● синхронизировано');
+    render();
+  } catch (err) {
+    console.error(err);
+    const cached = localStorage.getItem('olympiads_cache');
+    if (cached) {
+      try {
+        data = JSON.parse(cached).map(migrateItem);
+        setSyncStatus('err', '⚠ офлайн');
+        toast('Нет связи с Firebase', 'err');
+        render();
+        return;
+      } catch(e) {}
+    }
+    setSyncStatus('err', '✕ ошибка');
+    toast('Не удалось загрузить: ' + err.message, 'err');
+    render();
+  }
+}
+
+$('f-stage').addEventListener('change', e => {
+  const custom = $('f-stage-custom');
+  custom.style.display = e.target.value === 'custom' ? 'block' : 'none';
+  if (e.target.value === 'custom') custom.focus();
+});
+
+async function addOlymp() {
+  const name = $('f-name').value.trim();
+  const subject = $('f-subject').value.trim();
+  const stageSel = $('f-stage').value;
+  const stage = stageSel === 'custom' ? $('f-stage-custom').value.trim() : stageSel;
+  const format = $('f-format').value.trim();
+  const admission = $('f-admission').value.trim();
+  const accessStart = $('f-access-start').value;
+  const accessEnd = $('f-access-end').value;
+  const duration = $('f-duration').value.trim();
+
+  if (!name) { toast('Введите название', 'err'); return; }
+
+  const btn = $('add-btn');
+  btn.disabled = true;
+  btn.textContent = 'сохранение…';
+
+  try {
+    const item = { name, subject, stage, format, admission, accessStart, accessEnd, duration, createdAt: new Date().toISOString() };
+    const fbKey = await fbPush(item);
+    data.push({ ...item, fbKey });
+    localStorage.setItem('olympiads_cache', JSON.stringify(data));
+    clearForm();
+    render();
+    toast('Добавлено', 'ok');
+  } catch (err) {
+    toast('Ошибка: ' + err.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Добавить';
+  }
+}
+
+function clearForm() {
+  ['f-name','f-subject','f-stage-custom','f-access-start','f-access-end','f-duration','f-admission','f-format'].forEach(id => $(id).value = '');
+  $('f-stage').value = 'Школьный';
+  $('f-stage-custom').style.display = 'none';
+}
+
+// ИЗМЕНЕНО: проверка на 3 дня (72 часа)
+function getStatus(item) {
+  const now = new Date();
+  const start = item.accessStart ? new Date(item.accessStart) : null;
+  const end = item.accessEnd ? new Date(item.accessEnd) : null;
+
+  if (end && now > end) return 'past';
+
+  // Если до конца ≤ 72 часов (3 дня), считаем срочным, даже если начало ещё не наступило
+  if (end) {
+    const hoursLeft = (end - now) / (1000 * 60 * 60);
+    if (hoursLeft <= 72 && hoursLeft > 0) return 'expiring';
+  }
+
+  if (start && now < start) return 'upcoming';
+
+  return 'active';
+}
+
+const statusLabels = { 
+  active: 'Доступ открыт', 
+  upcoming: 'Скоро', 
+  past: 'Завершено' 
+};
+
+function getStatusLabel(item, status) {
+  if (status === 'expiring') {
+    const now = new Date();
+    const start = item.accessStart ? new Date(item.accessStart) : null;
+    if (start && now < start) return '🔥 Скоро начнётся';
+    return '🔥 Скоро закончится';
+  }
+  return statusLabels[status];
+}
+
+function fmtDT(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function admissionBadge(val) {
+  if (!val) return '';
+  if (val === '1') return '<span class="olymp-admission adm-1">1 ур.</span>';
+  if (val === '2') return '<span class="olymp-admission adm-2">2 ур.</span>';
+  if (val === '3') return '<span class="olymp-admission adm-3">3 ур.</span>';
+  return `<span class="olymp-admission adm-custom" title="${escapeHtml(val)}">${escapeHtml(val)}</span>`;
+}
+
+function formatBadge(val) {
+  if (!val) return '';
+  const v = val.toLowerCase();
+  if (v === 'онлайн' || v === 'online' || v === 'дистант' || v === 'дистанционный') return `<span class="olymp-format fmt-online">🌐 ${escapeHtml(val)}</span>`;
+  if (v === 'офлайн' || v === 'offline' || v === 'очно' || v === 'очный') return `<span class="olymp-format fmt-offline">🏫 ${escapeHtml(val)}</span>`;
+  if (v === 'гибрид' || v === 'hybrid' || v === 'смешанный' || v === 'очно-заочно') return `<span class="olymp-format fmt-hybrid">🔀 ${escapeHtml(val)}</span>`;
+  return `<span class="olymp-format fmt-custom">${escapeHtml(val)}</span>`;
+}
+
+function matchesDateFilter(item, preset) {
+  if (!preset) return true;
+  const start = item.accessStart ? new Date(item.accessStart) : null;
+  if (!start) return false;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  const targetStart = new Date(today);
+  const targetEnd = new Date(today);
+  targetEnd.setDate(targetEnd.getDate() + 1);
+
+  if (preset === 'today') {
+    return start >= today && start < targetEnd;
+  }
+  if (preset === 'tomorrow') {
+    targetStart.setDate(targetStart.getDate() + 1);
+    targetEnd.setDate(targetEnd.getDate() + 2);
+    return start >= targetStart && start < targetEnd;
+  }
+  if (preset === 'dayafter') {
+    targetStart.setDate(targetStart.getDate() + 2);
+    targetEnd.setDate(targetEnd.getDate() + 3);
+    return start >= targetStart && start < targetEnd;
+  }
+  if (preset === 'week') {
+    const dayOfWeek = today.getDay();
+    const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+    const weekEnd = new Date(today);
+    weekEnd.setDate(weekEnd.getDate() + daysUntilSunday + 1);
+    return start >= today && start < weekEnd;
+  }
+  if (preset === 'month') {
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return start >= today && start < monthEnd;
+  }
+  return true;
+}
+
+function render() {
+  const search = $('search').value.toLowerCase();
+  const subjFilter = $('filter-subject').value;
+  const formatFilter = $('filter-format').value;
+  const admFilter = $('filter-admission').value;
+  const statusFilter = $('filter-status').value;
+  const dateFilter = $('filter-date').value;
+  const sort = $('sort').value;
+
+  const subjects = [...new Set(data.map(d => d.subject).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'ru'));
+  const subjSel = $('filter-subject');
+  const curSubj = subjSel.value;
+  subjSel.innerHTML = '<option value="">Все</option>' + subjects.map(s => `<option value="${escapeHtml(s)}" ${s===curSubj?'selected':''}>${escapeHtml(s)}</option>`).join('');
+
+  const formats = [...new Set(data.map(d => d.format).filter(Boolean))].sort((a,b) => {
+    const order = { 'Онлайн': 1, 'Офлайн': 2, 'Гибрид': 3 };
+    const oa = order[a] ?? 99, ob = order[b] ?? 99;
+    if (oa !== ob) return oa - ob;
+    return a.localeCompare(b, 'ru');
+  });
+  const fmtSel = $('filter-format');
+  const curFmt = fmtSel.value;
+  fmtSel.innerHTML = '<option value="">Все</option>' + formats.map(s => `<option value="${escapeHtml(s)}" ${s===curFmt?'selected':''}>${escapeHtml(s)}</option>`).join('');
+
+  const admissions = [...new Set(data.map(d => d.admission).filter(Boolean))].sort((a,b) => {
+    const na = parseInt(a), nb = parseInt(b);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return a.localeCompare(b, 'ru');
+  });
+  const admSel = $('filter-admission');
+  const curAdm = admSel.value;
+  admSel.innerHTML = '<option value="">Все</option>' + admissions.map(s => `<option value="${escapeHtml(s)}" ${s===curAdm?'selected':''}>${escapeHtml(s)}</option>`).join('');
+
+  refreshDatalists();
+
+  let list = data.filter(d => {
+    if (search && !(d.name.toLowerCase().includes(search) || (d.subject||'').toLowerCase().includes(search))) return false;
+    if (subjFilter && d.subject !== subjFilter) return false;
+    if (formatFilter && (d.format || '') !== formatFilter) return false;
+    if (admFilter && (d.admission || '') !== admFilter) return false;
+    if (statusFilter && getStatus(d) !== statusFilter) return false;
+    if (!matchesDateFilter(d, dateFilter)) return false;
+    return true;
+  });
+
+  list.sort((a,b) => {
+    if (sort === 'access-start-asc') return (a.accessStart||'').localeCompare(b.accessStart||'');
+    if (sort === 'access-start-desc') return (b.accessStart||'').localeCompare(a.accessStart||'');
+    if (sort === 'admission-asc') {
+      const ord = x => x === '1' ? 1 : x === '2' ? 2 : x === '3' ? 3 : 99;
+      return ord(a.admission) - ord(b.admission);
+    }
+    if (sort === 'format-asc') {
+      const fmtOrd = x => {
+        const v = (x || '').toLowerCase();
+        if (v === 'онлайн' || v === 'online' || v === 'дистант' || v === 'дистанционный') return 1;
+        if (v === 'офлайн' || v === 'offline' || v === 'очно' || v === 'очный') return 2;
+        if (v === 'гибрид' || v === 'hybrid' || v === 'смешанный' || v === 'очно-заочно') return 3;
+        return 4;
+      };
+      return fmtOrd(a.format) - fmtOrd(b.format) || (a.accessStart||'').localeCompare(b.accessStart||'');
+    }
+    if (sort === 'name-asc') return a.name.localeCompare(b.name, 'ru');
+    return 0;
+  });
+
+  const container = $('olymp-list');
+  if (!list.length) {
+    container.innerHTML = '<div class="empty">Ничего не найдено. Попробуй изменить фильтры ↑</div>';
+    return;
+  }
+
+  container.innerHTML = list.map(d => {
+    const status = getStatus(d);
+    return `
+      <div class="olymp-card status-${status}">
+        <div class="olymp-header">
+          <div>
+            <span class="olymp-title">${escapeHtml(d.name)}</span>
+            ${d.subject ? `<span class="olymp-subject">${escapeHtml(d.subject)}</span>` : ''}
+            ${d.stage ? `<span class="olymp-stage">${escapeHtml(d.stage)}</span>` : ''}
+            ${formatBadge(d.format)}
+            ${admissionBadge(d.admission)}
+          </div>
+          <span class="olymp-status">${getStatusLabel(d, status)}</span>
+        </div>
+        <div class="olymp-meta">
+          <div><strong>Доступ с:</strong> ${fmtDT(d.accessStart)}</div>
+          <div><strong>Доступ по:</strong> ${fmtDT(d.accessEnd)}</div>
+          <div><strong>Время написания:</strong> ${escapeHtml(d.duration || '—')}</div>
+        </div>
+        <div class="olymp-actions">
+          <button class="btn btn-secondary btn-sm" onclick="openEdit('${d.fbKey}')">Редактировать</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteOlymp('${d.fbKey}')">Удалить</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function deleteOlymp(fbKey) {
+  if (!confirm('Удалить олимпиаду?')) return;
+  try {
+    await fbDelete(fbKey);
+    data = data.filter(d => d.fbKey !== fbKey);
+    localStorage.setItem('olympiads_cache', JSON.stringify(data));
+    render();
+    toast('Удалено', 'ok');
+  } catch (err) {
+    toast('Ошибка: ' + err.message, 'err');
+  }
+}
+
+let editingKey = null;
+
+function openEdit(fbKey) {
+  const d = data.find(x => x.fbKey === fbKey);
+  if (!d) return;
+  editingKey = fbKey;
+  $('e-name').value = d.name || '';
+  $('e-subject').value = d.subject || '';
+  $('e-stage').value = d.stage || '';
+  $('e-format').value = d.format || '';
+  $('e-admission').value = d.admission || '';
+  $('e-access-start').value = d.accessStart || '';
+  $('e-access-end').value = d.accessEnd || '';
+  $('e-duration').value = d.duration || '';
+  $('edit-modal').classList.add('show');
+}
+
+function closeEdit() {
+  $('edit-modal').classList.remove('show');
+  editingKey = null;
+}
+
+async function saveEdit() {
+  const d = data.find(x => x.fbKey === editingKey);
+  if (!d) return;
+
+  const btn = $('save-edit-btn');
+  btn.disabled = true;
+  btn.textContent = 'сохранение…';
+
+  try {
+    const updated = {
+      name: $('e-name').value.trim(),
+      subject: $('e-subject').value.trim(),
+      stage: $('e-stage').value.trim(),
+      format: $('e-format').value.trim(),
+      admission: $('e-admission').value.trim(),
+      accessStart: $('e-access-start').value,
+      accessEnd: $('e-access-end').value,
+      duration: $('e-duration').value.trim(),
+      createdAt: d.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    await fbUpdate(editingKey, updated);
+    Object.assign(d, updated);
+    localStorage.setItem('olympiads_cache', JSON.stringify(data));
+    closeEdit();
+    render();
+    toast('Сохранено', 'ok');
+  } catch (err) {
+    toast('Ошибка: ' + err.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Сохранить';
+  }
+}
+
+$('edit-modal').addEventListener('click', e => { /* блокирует фон */ });
+
+function exportData() {
+  const clean = data.map(({ fbKey, ...rest }) => rest);
+  const blob = new Blob([JSON.stringify(clean, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `olympiads_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      if (!Array.isArray(imported)) throw new Error('Неверный формат');
+      if (!confirm(`Импортировать ${imported.length} записей в Firebase? Текущие данные будут заменены.`)) return;
+      const withKeys = imported.map(it => ({ ...migrateItem(it), fbKey: String(Date.now() + Math.random()) }));
+      await fbReplaceAll(withKeys);
+      data = withKeys;
+      localStorage.setItem('olympiads_cache', JSON.stringify(data));
+      render();
+      toast('Импортировано', 'ok');
+    } catch(err) {
+      toast('Ошибка импорта: ' + err.message, 'err');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+setInterval(render, 60000);
+init();
+</script>
+</body>
+</html>
