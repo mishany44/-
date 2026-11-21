@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Учёт олимпиад</title>
+<!-- SheetJS для экспорта в XLSX -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <style>
   :root {
     --bg: #0f1419;
@@ -99,6 +101,8 @@
   .btn-secondary:hover:not(:disabled) { background: var(--border); }
   .btn-danger { background: var(--danger); color: white; }
   .btn-danger:hover:not(:disabled) { background: #d63636; }
+  .btn-success { background: var(--success); color: #0f1419; }
+  .btn-success:hover:not(:disabled) { background: #35b87d; }
   .btn-sm { padding: 6px 12px; font-size: 13px; }
   .actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
 
@@ -360,6 +364,10 @@
           <option value="format-asc">По формату (онлайн→офлайн)</option>
           <option value="name-asc">По названию А→Я</option>
         </select>
+      </div>
+      <div style="flex:0;">
+        <label>&nbsp;</label>
+        <button class="btn btn-success btn-sm" onclick="exportXLSX()">📊 Экспорт XLSX</button>
       </div>
       <div style="flex:0;">
         <label>&nbsp;</label>
@@ -718,7 +726,6 @@ function matchesDateFilter(item, preset) {
   return true;
 }
 
-// Приоритет статуса для сортировки: expiring → active → upcoming → past
 function statusPriority(status) {
   return status === 'expiring' ? 1 : status === 'active' ? 2 : status === 'upcoming' ? 3 : 4;
 }
@@ -772,12 +779,8 @@ function render() {
     const sa = getStatus(a), sb = getStatus(b);
 
     if (sort === 'end-asc') {
-      // Сначала по приоритету статуса (expiring → active → upcoming → past)
       const pa = statusPriority(sa), pb = statusPriority(sb);
       if (pa !== pb) return pa - pb;
-      // Внутри одной группы — по дате окончания:
-      //   для expiring/active/upcoming: чем ближе конец — тем выше (asc)
-      //   для past: чем свежее завершилось — тем выше (desc)
       const endA = a.accessEnd ? new Date(a.accessEnd).getTime() : 0;
       const endB = b.accessEnd ? new Date(b.accessEnd).getTime() : 0;
       if (sa === 'past' && sb === 'past') return endB - endA;
@@ -908,6 +911,69 @@ async function saveEdit() {
 }
 
 $('edit-modal').addEventListener('click', e => { /* блокирует фон */ });
+
+// ===== ЭКСПОРТ В XLSX =====
+function exportXLSX() {
+  if (typeof XLSX === 'undefined') {
+    toast('Библиотека XLSX не загружена. Проверь интернет.', 'err');
+    return;
+  }
+  if (!data.length) {
+    toast('Нет данных для экспорта', 'err');
+    return;
+  }
+
+  // Заголовки колонок
+  const headers = [
+    'Название',
+    'Предмет',
+    'Этап',
+    'Формат',
+    'Уровень при поступлении',
+    'Доступ с',
+    'Доступ по',
+    'Время написания',
+    'Статус'
+  ];
+
+  // Преобразуем данные в массив массивов
+  const rows = data.map(d => [
+    d.name || '',
+    d.subject || '',
+    d.stage || '',
+    d.format || '',
+    d.admission || '',
+    d.accessStart ? fmtDT(d.accessStart) : '',
+    d.accessEnd ? fmtDT(d.accessEnd) : '',
+    d.duration || '',
+    getStatusLabel(d, getStatus(d))
+  ]);
+
+  // Создаём книгу
+  const wb = XLSX.utils.book_new();
+  const wsData = [headers, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Настройка ширины колонок
+  ws['!cols'] = [
+    { wch: 35 }, // Название
+    { wch: 18 }, // Предмет
+    { wch: 16 }, // Этап
+    { wch: 14 }, // Формат
+    { wch: 20 }, // Уровень
+    { wch: 20 }, // Доступ с
+    { wch: 20 }, // Доступ по
+    { wch: 18 }, // Время написания
+    { wch: 22 }  // Статус
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Олимпиады');
+
+  // Скачиваем файл
+  const fileName = `olympiads_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  toast(`Экспортировано ${data.length} записей`, 'ok');
+}
 
 function exportData() {
   const clean = data.map(({ fbKey, ...rest }) => rest);
