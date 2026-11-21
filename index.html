@@ -353,8 +353,9 @@
       <div>
         <label>Сортировка</label>
         <select id="sort" onchange="render()">
-          <option value="access-start-asc">Доступ с (сначала ближайшие)</option>
-          <option value="access-start-desc">Доступ с (сначала поздние)</option>
+          <option value="end-asc">По завершению (сначала ближайшие к концу)</option>
+          <option value="access-start-asc">По началу (сначала ближайшие)</option>
+          <option value="access-start-desc">По началу (сначала поздние)</option>
           <option value="admission-asc">По уровню поступления (1→3)</option>
           <option value="format-asc">По формату (онлайн→офлайн)</option>
           <option value="name-asc">По названию А→Я</option>
@@ -618,7 +619,6 @@ function clearForm() {
   $('f-stage-custom').style.display = 'none';
 }
 
-// ИЗМЕНЕНО: проверка на 3 дня (72 часа)
 function getStatus(item) {
   const now = new Date();
   const start = item.accessStart ? new Date(item.accessStart) : null;
@@ -626,7 +626,6 @@ function getStatus(item) {
 
   if (end && now > end) return 'past';
 
-  // Если до конца ≤ 72 часов (3 дня), считаем срочным, даже если начало ещё не наступило
   if (end) {
     const hoursLeft = (end - now) / (1000 * 60 * 60);
     if (hoursLeft <= 72 && hoursLeft > 0) return 'expiring';
@@ -719,6 +718,11 @@ function matchesDateFilter(item, preset) {
   return true;
 }
 
+// Приоритет статуса для сортировки: expiring → active → upcoming → past
+function statusPriority(status) {
+  return status === 'expiring' ? 1 : status === 'active' ? 2 : status === 'upcoming' ? 3 : 4;
+}
+
 function render() {
   const search = $('search').value.toLowerCase();
   const subjFilter = $('filter-subject').value;
@@ -765,6 +769,20 @@ function render() {
   });
 
   list.sort((a,b) => {
+    const sa = getStatus(a), sb = getStatus(b);
+
+    if (sort === 'end-asc') {
+      // Сначала по приоритету статуса (expiring → active → upcoming → past)
+      const pa = statusPriority(sa), pb = statusPriority(sb);
+      if (pa !== pb) return pa - pb;
+      // Внутри одной группы — по дате окончания:
+      //   для expiring/active/upcoming: чем ближе конец — тем выше (asc)
+      //   для past: чем свежее завершилось — тем выше (desc)
+      const endA = a.accessEnd ? new Date(a.accessEnd).getTime() : 0;
+      const endB = b.accessEnd ? new Date(b.accessEnd).getTime() : 0;
+      if (sa === 'past' && sb === 'past') return endB - endA;
+      return endA - endB;
+    }
     if (sort === 'access-start-asc') return (a.accessStart||'').localeCompare(b.accessStart||'');
     if (sort === 'access-start-desc') return (b.accessStart||'').localeCompare(a.accessStart||'');
     if (sort === 'admission-asc') {
